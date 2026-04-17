@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supply Chain Risk Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1a2235;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #4a5568;
+    --accent: #38bdf8;
+    --accent2: #0ea5e9;
+    --red: #f87171;
+    --red2: #ef4444;
+    --amber: #fbbf24;
+    --amber2: #f59e0b;
+    --green: #34d399;
+    --green2: #10b981;
+    --purple: #a78bfa;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* Header */
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(10,14,26,0.9);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--text3); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.06em;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.4); }
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 4px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent2);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text2);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Layout */
+  .main { display: grid; grid-template-columns: 320px 1fr; flex: 1; }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    max-height: calc(100vh - 57px);
+    position: sticky;
+    top: 57px;
+  }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+  }
+
+  /* KPI cards */
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .kpi {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .kpi-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
+  .kpi-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .kpi-sub {
+    font-size: 10px;
+    color: var(--text2);
+    margin-top: 3px;
+  }
+  .red { color: var(--red); }
+  .amber { color: var(--amber); }
+  .green { color: var(--green); }
+  .accent { color: var(--accent); }
+
+  /* Risk events */
+  .event-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .event-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    border-radius: 0 4px 4px 0;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .event-item:hover { background: var(--bg2); }
+  .event-item.critical { border-left-color: var(--red2); }
+  .event-item.warning { border-left-color: var(--amber2); }
+  .event-item.info { border-left-color: var(--accent2); }
+
+  .event-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+  .event-title { font-weight: 500; font-size: 12px; }
+  .event-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .badge-critical { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-warning { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .badge-info { background: rgba(14,165,233,0.15); color: var(--accent); }
+  .event-desc { font-size: 11px; color: var(--text2); }
+
+  /* Supplier list */
+  .supplier-list { display: flex; flex-direction: column; gap: 4px; }
+
+  .supplier-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .supplier-row:hover, .supplier-row.selected { background: var(--bg3); }
+
+  .risk-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .supplier-name { flex: 1; font-size: 12px; }
+  .risk-score {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    min-width: 32px;
+    text-align: right;
+  }
+  .risk-bar-wrap { width: 50px; height: 4px; background: var(--border); border-radius: 2px; }
+  .risk-bar { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+  /* Right panel */
+  .right-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Graph area */
+  .graph-area {
+    flex: 1;
+    position: relative;
+    min-height: 480px;
+  }
+
+  #graph-svg { width: 100%; height: 100%; }
+
+  .graph-overlay {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .legend-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(10,14,26,0.85);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+  .legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* Detail panel */
+  .detail-panel {
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+    padding: 16px 20px;
+    min-height: 180px;
+  }
+
+  .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+
+  .detail-metric {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .detail-metric-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
+  .detail-metric-value {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  /* Algo results bar */
+  .algo-bar {
+    border-top: 1px solid var(--border);
+    padding: 10px 20px;
+    background: var(--bg);
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    overflow-x: auto;
+  }
+  .algo-item { display: flex; flex-direction: column; gap: 2px; min-width: 120px; }
+  .algo-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+  .algo-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* D3 graph styles */
+  .node-circle { stroke-width: 2; cursor: pointer; transition: r 0.2s; }
+  .node-label { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; pointer-events: none; fill: #e2e8f0; }
+  .node-sublabel { font-family: 'IBM Plex Mono', monospace; font-size: 9px; pointer-events: none; fill: #94a3b8; }
+  .link { stroke-opacity: 0.4; fill: none; }
+  .link-critical { stroke: #ef4444; stroke-opacity: 0.7; stroke-width: 2; }
+  .link-warning { stroke: #f59e0b; stroke-opacity: 0.6; stroke-width: 1.5; }
+  .link-normal { stroke: #1e2d45; stroke-width: 1; }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 999;
+    max-width: 220px;
+  }
+  #tooltip .tt-title { font-weight: 500; margin-bottom: 4px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text2); font-family: var(--mono); font-size: 11px; }
+  #tooltip .tt-val { color: var(--text); }
+
+  /* Simulation controls */
+  .sim-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .scenario-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .scenario-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .scenario-btn.active { border-color: var(--amber2); color: var(--amber); background: rgba(245,158,11,0.08); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .animate-in { animation: fadeIn 0.3s ease forwards; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">SCRM<span>//</span>Analyzer <span style="color:var(--text3);font-weight:300;margin-left:8px">Supply Chain Risk Intelligence</span></div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>SIMULATION ACTIVE</div>
+    <button class="btn btn-ghost" onclick="resetSimulation()">Reset</button>
+    <button class="btn btn-primary" onclick="runFullAnalysis()">Run Analysis</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="section-label">Network KPIs</div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Overall Risk</div>
+          <div class="kpi-value red" id="kpi-risk">72</div>
+          <div class="kpi-sub">/ 100 score</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Critical Nodes</div>
+          <div class="kpi-value red" id="kpi-critical">3</div>
+          <div class="kpi-sub">require action</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Revenue at Risk</div>
+          <div class="kpi-value amber" id="kpi-revenue">$4.2M</div>
+          <div class="kpi-sub">next 30 days</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Resilience</div>
+          <div class="kpi-value amber" id="kpi-resilience">38%</div>
+          <div class="kpi-sub">redundancy score</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Active Risk Events</div>
+      <div class="event-list" id="event-list"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Simulate Scenario</div>
+      <div class="sim-controls" id="scenario-controls"></div>
+    </div>
+
+    <div class="sidebar-section" style="flex:1">
+      <div class="section-label">Supplier Risk Index</div>
+      <div class="supplier-list" id="supplier-list"></div>
+    </div>
+
+  </div>
+
+  <!-- Right panel -->
+  <div class="right-panel">
+
+    <div class="graph-area">
+      <svg id="graph-svg"></svg>
+      <div class="graph-overlay">
+        <div class="legend-pill"><div class="legend-dot" style="background:var(--red)"></div>Critical risk</div>
+        <div class="legend-pill"><div class="legend-dot" style="background:var(--amber)"></div>Warning</div>
+        <div class="legend-pill"><div class="legend-dot" style="background:var(--green)"></div>Healthy</div>
+        <div class="legend-pill"><div class="legend-dot" style="background:var(--purple)"></div>Your plant</div>
+      </div>
+    </div>
+
+    <div class="algo-bar" id="algo-bar">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-right:8px;">Algorithm outputs →</div>
+    </div>
+
+    <div class="detail-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-label" style="margin:0">Node Detail</div>
+        <div id="detail-node-name" style="font-family:var(--mono);font-size:12px;color:var(--accent)">Select a supplier node</div>
+      </div>
+      <div class="detail-grid" id="detail-grid">
+        <div class="detail-metric"><div class="detail-metric-label">Risk Score</div><div class="detail-metric-value" style="color:var(--text3)">—</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Centrality</div><div class="detail-metric-value" style="color:var(--text3)">—</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Lead Time</div><div class="detail-metric-value" style="color:var(--text3)">—</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Revenue Exp.</div><div class="detail-metric-value" style="color:var(--text3)">—</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ============================================================
+// SIMULATION DATA
+// ============================================================
+const SUPPLIERS = [
+  // id, name, tier, country, riskBase, financialHealth, leadDays, revenueExposure($K), single_source
+  { id: "S1",  name: "TSMC Fab",          tier: 2, country: "Taiwan",      riskBase: 85, financial: 72, leadDays: 90, revenue: 1800, singleSource: true,  component: "Microchips" },
+  { id: "S2",  name: "Rare Earth Co.",    tier: 2, country: "Congo",       riskBase: 68, financial: 55, leadDays: 60, revenue: 420,  singleSource: true,  component: "Rare earths" },
+  { id: "S3",  name: "BASF Chemicals",    tier: 2, country: "Germany",     riskBase: 18, financial: 88, leadDays: 21, revenue: 310,  singleSource: false, component: "Resins" },
+  { id: "S4",  name: "PCB Vietnam",       tier: 2, country: "Vietnam",     riskBase: 22, financial: 71, leadDays: 35, revenue: 560,  singleSource: false, component: "PCBs" },
+  { id: "S5",  name: "Foxconn Asm.",      tier: 1, country: "China",       riskBase: 45, financial: 82, leadDays: 45, revenue: 2100, singleSource: false, component: "Electronics asm." },
+  { id: "S6",  name: "Magna Parts",       tier: 1, country: "Mexico",      riskBase: 38, financial: 76, leadDays: 28, revenue: 890,  singleSource: true,  component: "Mechanical parts" },
+  { id: "S7",  name: "DHL Logistics",     tier: 1, country: "Germany",     riskBase: 25, financial: 90, leadDays: 14, revenue: 290,  singleSource: false, component: "Logistics" },
+  { id: "S8",  name: "Flex Packaging",    tier: 1, country: "USA",         riskBase: 12, financial: 85, leadDays: 10, revenue: 140,  singleSource: false, component: "Packaging" },
+  { id: "YOU", name: "Assembly Plant",    tier: 0, country: "India",       riskBase: 0,  financial: 100,leadDays: 0,  revenue: 0,    singleSource: false, component: "Final product" },
+];
+
+// Directed edges: source → target (material flows toward YOU)
+const EDGES_BASE = [
+  { source: "S1", target: "S5", weight: 3 },
+  { source: "S1", target: "S6", weight: 2 },
+  { source: "S2", target: "S5", weight: 2 },
+  { source: "S3", target: "S6", weight: 1 },
+  { source: "S4", target: "S5", weight: 2 },
+  { source: "S5", target: "YOU", weight: 3 },
+  { source: "S6", target: "YOU", weight: 2 },
+  { source: "S7", target: "YOU", weight: 1 },
+  { source: "S8", target: "YOU", weight: 1 },
+];
+
+const RISK_EVENTS = [
+  { id: "E1", title: "Typhoon Khanun", desc: "3-week production halt at TSMC Fab. Chip supply critical.", severity: "critical", affectedIds: ["S1"], riskDelta: 30 },
+  { id: "E2", title: "Export levy — Congo", desc: "Govt reviewing 25% rare earth export levy.", severity: "warning", affectedIds: ["S2"], riskDelta: 18 },
+  { id: "E3", title: "Port congestion — Shanghai", desc: "15-day delay on Foxconn shipments.", severity: "warning", affectedIds: ["S5"], riskDelta: 22 },
+  { id: "E4", title: "Magna financial stress", desc: "Credit rating downgraded. Single-source dependency.", severity: "critical", affectedIds: ["S6"], riskDelta: 25 },
+  { id: "E5", title: "Vietnam labor strike", desc: "PCB Vietnam operations at 40% capacity.", severity: "warning", affectedIds: ["S4"], riskDelta: 20 },
+];
+
+const SCENARIOS = [
+  { id: "SC1", label: "Typhoon hits Taiwan", events: ["E1"] },
+  { id: "SC2", label: "Dual supplier failure", events: ["E1","E4"] },
+  { id: "SC3", label: "Full cascade event", events: ["E1","E2","E4","E5"] },
+  { id: "SC4", label: "Port + labor disruption", events: ["E3","E5"] },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  activeEvents: ["E1", "E4"],
+  selectedNode: null,
+  suppliers: {},
+  simulation: null,
+};
+
+// ============================================================
+// ALGORITHMS
+// ============================================================
+
+function computeNodeRiskScores() {
+  const scores = {};
+  // Each supplier base risk + event delta
+  SUPPLIERS.forEach(s => {
+    let risk = s.riskBase;
+    state.activeEvents.forEach(eid => {
+      const ev = RISK_EVENTS.find(e => e.id === eid);
+      if (ev && ev.affectedIds.includes(s.id)) risk = Math.min(100, risk + ev.riskDelta);
+    });
+    // Financial health inversely contributes
+    risk = Math.min(100, risk + Math.max(0, (100 - s.financial) * 0.15));
+    // Single source penalty
+    if (s.singleSource) risk = Math.min(100, risk + 12);
+    scores[s.id] = Math.round(risk);
+  });
+  return scores;
+}
+
+// Cascade: propagate risk upstream → downstream through graph
+function propagateCascade(scores) {
+  const cascaded = { ...scores };
+  // BFS from highest-risk tier-2 nodes toward YOU
+  const tiers = [2, 1, 0];
+  tiers.forEach(tier => {
+    SUPPLIERS.filter(s => s.tier === tier).forEach(s => {
+      // Downstream edges from this node
+      EDGES_BASE.filter(e => e.source === s.id).forEach(edge => {
+        const upstreamRisk = cascaded[s.id] || 0;
+        const propagation = upstreamRisk * 0.45 * (edge.weight / 3);
+        cascaded[edge.target] = Math.min(100, Math.round((cascaded[edge.target] || 0) + propagation));
+      });
+    });
+  });
+  return cascaded;
+}
+
+// Betweenness centrality (simplified: count paths through each node)
+function computeCentrality() {
+  const centrality = {};
+  SUPPLIERS.forEach(s => centrality[s.id] = 0);
+  // For each pair of tier2→YOU paths, count which nodes appear
+  const tier2 = SUPPLIERS.filter(s => s.tier === 2).map(s => s.id);
+  tier2.forEach(src => {
+    // BFS paths to YOU
+    const paths = findAllPaths(src, "YOU");
+    paths.forEach(path => {
+      path.slice(1, -1).forEach(node => {
+        centrality[node] = (centrality[node] || 0) + 1;
+      });
+    });
+  });
+  // Normalize 0-1
+  const max = Math.max(...Object.values(centrality), 1);
+  Object.keys(centrality).forEach(k => centrality[k] = centrality[k] / max);
+  return centrality;
+}
+
+function findAllPaths(src, dest) {
+  const results = [];
+  const visited = new Set();
+  function dfs(node, path) {
+    if (node === dest) { results.push([...path]); return; }
+    if (visited.has(node)) return;
+    visited.add(node);
+    EDGES_BASE.filter(e => e.source === node).forEach(e => dfs(e.target, [...path, e.target]));
+    visited.delete(node);
+  }
+  dfs(src, [src]);
+  return results;
+}
+
+// Critical path: highest-risk path from any tier-2 to YOU
+function findCriticalPath(scores) {
+  let worstPath = [];
+  let worstScore = 0;
+  const tier2 = SUPPLIERS.filter(s => s.tier === 2).map(s => s.id);
+  tier2.forEach(src => {
+    const paths = findAllPaths(src, "YOU");
+    paths.forEach(path => {
+      const score = path.reduce((sum, n) => sum + (scores[n] || 0), 0) / path.length;
+      if (score > worstScore) { worstScore = score; worstPath = path; }
+    });
+  });
+  return { path: worstPath, score: Math.round(worstScore) };
+}
+
+// Single-source exposure: revenue at risk from single-source nodes
+function computeRevenueAtRisk(scores) {
+  let total = 0;
+  SUPPLIERS.forEach(s => {
+    if (s.singleSource && scores[s.id] > 50) {
+      total += s.revenue * (scores[s.id] / 100);
+    } else if (scores[s.id] > 70) {
+      total += s.revenue * 0.4;
+    }
+  });
+  return Math.round(total);
+}
+
+// Network resilience: ratio of multi-source to single-source critical nodes
+function computeResilience(scores) {
+  const critical = SUPPLIERS.filter(s => (scores[s.id] || 0) > 60 && s.tier > 0);
+  if (!critical.length) return 100;
+  const redundant = critical.filter(s => !s.singleSource).length;
+  return Math.round((redundant / critical.length) * 100);
+}
+
+function runAnalysis() {
+  const baseScores = computeNodeRiskScores();
+  const cascadedScores = propagateCascade(baseScores);
+  const centrality = computeCentrality();
+  const criticalPath = findCriticalPath(cascadedScores);
+  const revenueAtRisk = computeRevenueAtRisk(cascadedScores);
+  const resilience = computeResilience(cascadedScores);
+  const overallRisk = Math.round(
+    SUPPLIERS.filter(s=>s.tier>0).reduce((sum,s) => sum + (cascadedScores[s.id]||0), 0) /
+    SUPPLIERS.filter(s=>s.tier>0).length
+  );
+  const criticalCount = SUPPLIERS.filter(s => (cascadedScores[s.id]||0) >= 70 && s.id !== 'YOU').length;
+
+  return { baseScores, cascadedScores, centrality, criticalPath, revenueAtRisk, resilience, overallRisk, criticalCount };
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+
+function riskColor(score) {
+  if (score >= 70) return getComputedStyle(document.documentElement).getPropertyValue('--red').trim();
+  if (score >= 45) return getComputedStyle(document.documentElement).getPropertyValue('--amber').trim();
+  if (score === 0) return getComputedStyle(document.documentElement).getPropertyValue('--purple').trim();
+  return getComputedStyle(document.documentElement).getPropertyValue('--green').trim();
+}
+
+function riskClass(score) {
+  if (score >= 70) return 'red';
+  if (score >= 45) return 'amber';
+  return 'green';
+}
+
+function updateKPIs(results) {
+  const r = results;
+  document.getElementById('kpi-risk').textContent = r.overallRisk;
+  document.getElementById('kpi-risk').className = 'kpi-value ' + riskClass(r.overallRisk);
+  document.getElementById('kpi-critical').textContent = r.criticalCount;
+  document.getElementById('kpi-revenue').textContent = '$' + (r.revenueAtRisk/1000).toFixed(1) + 'M';
+  document.getElementById('kpi-resilience').textContent = r.resilience + '%';
+  document.getElementById('kpi-resilience').className = 'kpi-value ' + (r.resilience < 50 ? 'amber' : 'green');
+}
+
+function renderEvents() {
+  const list = document.getElementById('event-list');
+  list.innerHTML = '';
+  RISK_EVENTS.forEach(ev => {
+    const active = state.activeEvents.includes(ev.id);
+    const div = document.createElement('div');
+    div.className = `event-item ${ev.severity} ${!active ? 'inactive' : ''}`;
+    div.style.opacity = active ? '1' : '0.4';
+    div.innerHTML = `
+      <div class="event-header">
+        <div class="event-title">${ev.title}</div>
+        <div class="event-badge badge-${ev.severity}">${ev.severity}</div>
+      </div>
+      <div class="event-desc">${ev.desc}</div>
+    `;
+    div.onclick = () => toggleEvent(ev.id);
+    list.appendChild(div);
+  });
+}
+
+function renderScenarios() {
+  const ctrl = document.getElementById('scenario-controls');
+  ctrl.innerHTML = '';
+  SCENARIOS.forEach(sc => {
+    const btn = document.createElement('button');
+    btn.className = 'scenario-btn';
+    btn.textContent = sc.label;
+    btn.onclick = () => applyScenario(sc);
+    ctrl.appendChild(btn);
+  });
+}
+
+function renderSupplierList(scores) {
+  const list = document.getElementById('supplier-list');
+  list.innerHTML = '';
+  const sorted = [...SUPPLIERS].filter(s=>s.id!=='YOU').sort((a,b) => (scores[b.id]||0)-(scores[a.id]||0));
+  sorted.forEach(s => {
+    const score = scores[s.id] || 0;
+    const color = riskColor(score);
+    const div = document.createElement('div');
+    div.className = 'supplier-row' + (state.selectedNode === s.id ? ' selected' : '');
+    div.innerHTML = `
+      <div class="risk-dot" style="background:${color}"></div>
+      <div class="supplier-name">${s.name}</div>
+      <div class="risk-bar-wrap"><div class="risk-bar" style="width:${score}%;background:${color}"></div></div>
+      <div class="risk-score" style="color:${color}">${score}</div>
+    `;
+    div.onclick = () => selectNode(s.id);
+    list.appendChild(div);
+  });
+}
+
+function renderAlgoBar(results) {
+  const bar = document.getElementById('algo-bar');
+  bar.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-right:8px;white-space:nowrap;">Algorithm outputs →</div>`;
+  const items = [
+    { label: "Critical path avg risk", value: results.criticalPath.score + "/100", color: "var(--red)" },
+    { label: "Critical path nodes", value: results.criticalPath.path.join(' → '), color: "var(--amber)" },
+    { label: "Highest centrality", value: getHighestCentrality(results.centrality), color: "var(--accent)" },
+    { label: "Cascade amplification", value: getCascadeAmp(results) + "×", color: "var(--purple)" },
+    { label: "Revenue at risk", value: '$' + (results.revenueAtRisk/1000).toFixed(1)+'M / 30d', color: "var(--amber)" },
+    { label: "Single-source exposure", value: SUPPLIERS.filter(s=>s.singleSource&&s.id!=='YOU').length + " suppliers", color: "var(--red)" },
+  ];
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'algo-item';
+    div.innerHTML = `<div class="algo-label">${item.label}</div><div class="algo-value" style="color:${item.color}">${item.value}</div>`;
+    bar.appendChild(div);
+  });
+}
+
+function getHighestCentrality(centrality) {
+  let maxId = '', maxVal = 0;
+  Object.entries(centrality).forEach(([id, val]) => { if(val > maxVal && id !== 'YOU') { maxVal = val; maxId = id; }});
+  const s = SUPPLIERS.find(s=>s.id===maxId);
+  return s ? s.name : maxId;
+}
+
+function getCascadeAmp(results) {
+  const tier2Avg = SUPPLIERS.filter(s=>s.tier===2).reduce((sum,s)=>(sum+(results.baseScores[s.id]||0)),0)/SUPPLIERS.filter(s=>s.tier===2).length;
+  const youScore = results.cascadedScores['YOU'] || 1;
+  if (!tier2Avg) return '1.0';
+  return (youScore / Math.max(tier2Avg,1) * 2).toFixed(1);
+}
+
+function renderDetail(nodeId, results) {
+  if (!nodeId) return;
+  const s = SUPPLIERS.find(s => s.id === nodeId);
+  if (!s) return;
+  const score = results.cascadedScores[nodeId] || 0;
+  const centrality = (results.centrality[nodeId] || 0);
+  document.getElementById('detail-node-name').textContent = s.name + ' · ' + s.country;
+  document.getElementById('detail-grid').innerHTML = `
+    <div class="detail-metric">
+      <div class="detail-metric-label">Risk Score</div>
+      <div class="detail-metric-value" style="color:${riskColor(score)}">${score}/100</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Centrality</div>
+      <div class="detail-metric-value" style="color:var(--accent)">${(centrality*100).toFixed(0)}%</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Lead Time</div>
+      <div class="detail-metric-value">${s.leadDays}d</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Revenue Exp.</div>
+      <div class="detail-metric-value" style="color:var(--amber)">$${(s.revenue/1000).toFixed(1)}M</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Component</div>
+      <div class="detail-metric-value" style="font-size:12px">${s.component}</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Financial Health</div>
+      <div class="detail-metric-value" style="color:${s.financial>70?'var(--green)':'var(--amber)'}">${s.financial}/100</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Single Source</div>
+      <div class="detail-metric-value" style="color:${s.singleSource?'var(--red)':'var(--green)'}">${s.singleSource?'YES — HIGH RISK':'No'}</div>
+    </div>
+    <div class="detail-metric">
+      <div class="detail-metric-label">Tier</div>
+      <div class="detail-metric-value" style="color:var(--text2)">${s.tier === 0 ? 'You' : 'Tier ' + s.tier}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// D3 GRAPH
+// ============================================================
+let svg, g, simulation_d3;
+
+function initGraph() {
+  svg = d3.select('#graph-svg');
+  g = svg.append('g');
+
+  svg.call(d3.zoom()
+    .scaleExtent([0.4, 3])
+    .on('zoom', (event) => g.attr('transform', event.transform))
+  );
+}
+
+function updateGraph(results) {
+  const { cascadedScores, centrality, criticalPath } = results;
+  const width = document.querySelector('.graph-area').clientWidth || 700;
+  const height = document.querySelector('.graph-area').clientHeight || 480;
+  svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+  const nodes = SUPPLIERS.map(s => ({
+    ...s,
+    score: cascadedScores[s.id] || 0,
+    centrality: centrality[s.id] || 0,
+    inCriticalPath: criticalPath.path.includes(s.id),
+    fx: s.tier === 2 ? 100 : s.tier === 1 ? width/2 : width - 110,
+    fy: null,
+  }));
+
+  // Arrange tier nodes vertically
+  const tier2 = nodes.filter(n=>n.tier===2);
+  const tier1 = nodes.filter(n=>n.tier===1);
+  const tier0 = nodes.filter(n=>n.tier===0);
+  const spacing = (tier2h) => (i, arr) => (height / (arr.length + 1)) * (i + 1);
+  tier2.forEach((n,i) => n.fy = spacing()(i, tier2));
+  tier1.forEach((n,i) => n.fy = spacing()(i, tier1));
+  tier0.forEach((n,i) => n.fy = height/2);
+
+  const links = EDGES_BASE.map(e => ({
+    ...e,
+    isCritical: criticalPath.path.includes(e.source) && criticalPath.path.includes(e.target),
+    isWarning: (cascadedScores[e.source]||0) >= 45,
+  }));
+
+  g.selectAll('*').remove();
+
+  // Draw tier labels
+  [[100, 'Tier 2'], [width/2, 'Tier 1'], [width-110, 'Your Plant']].forEach(([x, label]) => {
+    g.append('text')
+     .attr('x', x).attr('y', 20)
+     .attr('text-anchor', 'middle')
+     .attr('font-family', 'IBM Plex Mono').attr('font-size', 10)
+     .attr('fill', '#4a5568').attr('letter-spacing', '0.08em')
+     .text(label.toUpperCase());
+  });
+
+  // Draw vertical tier separators
+  [width/3.2, width/1.65].forEach(x => {
+    g.append('line')
+     .attr('x1', x).attr('y1', 30).attr('x2', x).attr('y2', height-10)
+     .attr('stroke', '#1e2d45').attr('stroke-width', 1).attr('stroke-dasharray', '4 4');
+  });
+
+  // Links
+  const link = g.selectAll('.link').data(links).enter().append('line')
+    .attr('class', d => d.isCritical ? 'link link-critical' : d.isWarning ? 'link link-warning' : 'link link-normal')
+    .attr('x1', d => nodes.find(n=>n.id===d.source).fx)
+    .attr('y1', d => nodes.find(n=>n.id===d.source).fy)
+    .attr('x2', d => nodes.find(n=>n.id===d.target).fx)
+    .attr('y2', d => nodes.find(n=>n.id===d.target).fy)
+    .attr('stroke-width', d => d.weight * (d.isCritical ? 2 : 1));
+
+  // Arrow markers
+  const defs = svg.append('defs');
+  defs.append('marker').attr('id','arr').attr('viewBox','0 0 10 10').attr('refX',8).attr('refY',5)
+    .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto-start-reverse')
+    .append('path').attr('d','M2 1L8 5L2 9').attr('fill','none').attr('stroke','#4a5568').attr('stroke-width',1.5);
+
+  link.attr('marker-end', 'url(#arr)');
+
+  // Nodes
+  const nodeG = g.selectAll('.node-g').data(nodes).enter().append('g')
+    .attr('class', 'node-g')
+    .attr('transform', d => `translate(${d.fx},${d.fy})`)
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => selectNode(d.id))
+    .on('mouseover', (event, d) => showTooltip(event, d, cascadedScores, centrality))
+    .on('mouseout', hideTooltip);
+
+  const nodeR = d => {
+    if (d.id === 'YOU') return 26;
+    return 14 + d.centrality * 10 + (d.score > 70 ? 4 : 0);
+  };
+
+  nodeG.append('circle')
+    .attr('r', nodeR)
+    .attr('fill', d => {
+      if (d.id==='YOU') return 'rgba(167,139,250,0.2)';
+      const c = riskColor(d.score);
+      return c + '22';
+    })
+    .attr('stroke', d => d.id==='YOU' ? '#a78bfa' : riskColor(d.score))
+    .attr('stroke-width', d => d.inCriticalPath ? 2.5 : 1.5);
+
+  // Critical path pulse ring
+  nodeG.filter(d => d.inCriticalPath && d.id !== 'YOU').append('circle')
+    .attr('r', d => nodeR(d) + 5)
+    .attr('fill', 'none')
+    .attr('stroke', '#ef4444')
+    .attr('stroke-width', 1)
+    .attr('stroke-dasharray', '3 3')
+    .attr('opacity', 0.5);
+
+  nodeG.append('text')
+    .attr('class', 'node-label')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => nodeR(d) + 14)
+    .text(d => d.name);
+
+  nodeG.append('text')
+    .attr('class', 'node-sublabel')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => nodeR(d) + 26)
+    .text(d => d.id === 'YOU' ? '' : d.score + ' risk');
+}
+
+function showTooltip(event, d, scores, centrality) {
+  const tt = document.getElementById('tooltip');
+  tt.innerHTML = `
+    <div class="tt-title">${d.name}</div>
+    <div class="tt-row"><span>Country</span><span class="tt-val">${d.country}</span></div>
+    <div class="tt-row"><span>Risk score</span><span class="tt-val" style="color:${riskColor(d.score)}">${d.score}/100</span></div>
+    <div class="tt-row"><span>Centrality</span><span class="tt-val">${((centrality[d.id]||0)*100).toFixed(0)}%</span></div>
+    <div class="tt-row"><span>Lead time</span><span class="tt-val">${d.leadDays}d</span></div>
+    <div class="tt-row"><span>Single source</span><span class="tt-val" style="color:${d.singleSource?'var(--red)':'var(--green)'}">${d.singleSource?'YES':'No'}</span></div>
+  `;
+  tt.style.opacity = '1';
+  tt.style.left = (event.clientX + 14) + 'px';
+  tt.style.top = (event.clientY - 20) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.opacity = '0';
+}
+
+// ============================================================
+// INTERACTIONS
+// ============================================================
+
+function selectNode(id) {
+  state.selectedNode = id;
+  const results = runAnalysis();
+  renderDetail(id, results);
+  // Highlight in supplier list
+  document.querySelectorAll('.supplier-row').forEach(r => r.classList.remove('selected'));
+  renderAll();
+}
+
+function toggleEvent(id) {
+  if (state.activeEvents.includes(id)) {
+    state.activeEvents = state.activeEvents.filter(e => e !== id);
+  } else {
+    state.activeEvents.push(id);
+  }
+  renderAll();
+}
+
+function applyScenario(sc) {
+  state.activeEvents = [...sc.events];
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderAll();
+}
+
+function resetSimulation() {
+  state.activeEvents = ["E1", "E4"];
+  state.selectedNode = null;
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  renderAll();
+}
+
+function runFullAnalysis() {
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent = 'Analyzing...';
+  setTimeout(() => {
+    renderAll();
+    btn.textContent = 'Run Analysis';
+  }, 600);
+}
+
+function renderAll() {
+  const results = runAnalysis();
+  updateKPIs(results);
+  renderEvents();
+  renderScenarios();
+  renderSupplierList(results.cascadedScores);
+  renderAlgoBar(results);
+  updateGraph(results);
+  if (state.selectedNode) renderDetail(state.selectedNode, results);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  initGraph();
+  renderAll();
+});
+</script>
+</body>
+</html>

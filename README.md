@@ -1,0 +1,93 @@
+# 🔗 Supply Chain Risk Analysis
+
+A full-stack application for visualising and analysing supply chain risk using graph theory.  
+Built with **Spring Boot** (Java 17), **React 19 + Vite**, and **PostgreSQL**.
+
+---
+
+## 📸 Features
+
+- **Interactive Graph View** — visualise your supply chain as a directed graph
+- **Critical Path Analysis** — identify the highest-risk path with total weight
+- **Disruption Simulator** — simulate a node failure and see cascading effects
+
+---
+
+## 🚀 Running with Docker (recommended)
+
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
+### Steps
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/divyanshdhote/supplychainriskanalysis.git
+cd supplychainriskanalysis
+
+# 2. Start all services (database + backend + frontend)
+docker compose up --build
+```
+
+That's it! Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+> The database is automatically seeded with sample supply chain data on first startup.
+
+### Stopping the app
+
+```bash
+docker compose down          # stop containers (data is preserved)
+docker compose down -v       # stop containers AND delete all data
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+Browser  →  Frontend (Nginx :3000)  →  Backend (Spring Boot :8080)  →  PostgreSQL
+```
+
+| Container | Tech | Port |
+|---|---|---|
+| `supply_chain_frontend` | React + Nginx | `3000` |
+| `supply_chain_backend` | Spring Boot | `8080` (internal + exposed) |
+| `supply_chain_db` | PostgreSQL 16 | internal only |
+
+---
+
+## 🛠️ Running Locally (without Docker)
+
+### Backend
+```bash
+cd backend/riskanalysis
+./mvnw spring-boot:run
+```
+Requires a local PostgreSQL instance at `localhost:5432` with database `supply_chain`.
+
+### Frontend
+```bash
+cd frontend/risk-frontend
+npm install
+npm run dev
+```
+Opens at `http://localhost:5173`. API calls are proxied to `http://localhost:8080`.
+
+---
+
+## 📁 Project Structure
+
+```
+FullSupplychainRiskAnalysis/
+├── backend/
+│   └── riskanalysis/        # Spring Boot app
+│       └── Dockerfile
+├── frontend/
+│   └── risk-frontend/       # React + Vite app
+│       ├── Dockerfile
+│       └── nginx.conf
+├── db/
+│   └── init.sql             # Seed data (auto-loaded on first start)
+├── docker-compose.yml
+└── README.md
+```
