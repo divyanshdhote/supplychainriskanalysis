@@ -4,7 +4,10 @@ import com.supplychain.riskanalysis.dto.AiExplainRequest;
 import com.supplychain.riskanalysis.dto.AiExplainResponse;
 import com.supplychain.riskanalysis.service.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 /**
  * REST controller that exposes the Gemini-powered explanation endpoint.
@@ -32,5 +35,11 @@ public class AiAnalysisController {
     @PostMapping("/ai-explain")
     public AiExplainResponse explain(@RequestBody AiExplainRequest request) {
         return aiAnalysisService.explain(request);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleMissingKey(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("message", "AI is disabled: " + ex.getMessage()));
     }
 }
