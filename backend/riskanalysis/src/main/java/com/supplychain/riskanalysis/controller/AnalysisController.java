@@ -7,8 +7,6 @@ import com.supplychain.riskanalysis.service.AnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/analysis")
 @RequiredArgsConstructor
@@ -20,8 +18,7 @@ public class AnalysisController {
 
     @GetMapping("/critical-path")
     public CriticalPathResponse getCriticalPath(
-            @RequestParam(defaultValue = DEFAULT_WEIGHT_TYPE) String weightType
-    ) {
+            @RequestParam(defaultValue = DEFAULT_WEIGHT_TYPE) String weightType) {
         return analysisService.getCriticalPath(weightType);
     }
 

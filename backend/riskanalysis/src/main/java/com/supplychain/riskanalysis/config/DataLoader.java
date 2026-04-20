@@ -21,33 +21,52 @@ public class DataLoader implements CommandLineRunner {
     public void run(String... args) {
 
         // Prevent duplicate inserts
-        if (nodeRepository.count() > 0) return;
+        if (nodeRepository.count() > 0)
+            return;
 
         // ---------------- NODES ----------------
 
-        Node company = nodeRepository.save(new Node(null, "Your Company", NodeType.RETAILER, 0, 3, OperatingStatus.ACTIVE, "India", "Central"));
+        Node company = nodeRepository.save(
+                new Node(null, "Your Company", NodeType.RETAILER, 0, 3, OperatingStatus.ACTIVE, "India", "Central"));
 
-        Node dNorth = nodeRepository.save(new Node(null, "Distributor North", NodeType.DISTRIBUTOR, 1, 5, OperatingStatus.ACTIVE, "India", "North"));
-        Node dSouth = nodeRepository.save(new Node(null, "Distributor South", NodeType.DISTRIBUTOR, 1, 6, OperatingStatus.ACTIVE, "India", "South"));
-        Node dExport = nodeRepository.save(new Node(null, "Distributor Export", NodeType.DISTRIBUTOR, 1, 7, OperatingStatus.ACTIVE, "India", "West"));
+        Node dNorth = nodeRepository.save(new Node(null, "Distributor North", NodeType.DISTRIBUTOR, 1, 5,
+                OperatingStatus.ACTIVE, "India", "North"));
+        Node dSouth = nodeRepository.save(new Node(null, "Distributor South", NodeType.DISTRIBUTOR, 1, 6,
+                OperatingStatus.ACTIVE, "India", "South"));
+        Node dExport = nodeRepository.save(new Node(null, "Distributor Export", NodeType.DISTRIBUTOR, 1, 7,
+                OperatingStatus.ACTIVE, "India", "West"));
 
-        Node wDelhi = nodeRepository.save(new Node(null, "Warehouse Delhi", NodeType.WAREHOUSE, 2, 7, OperatingStatus.ACTIVE, "India", "North"));
-        Node wMumbai = nodeRepository.save(new Node(null, "Warehouse Mumbai", NodeType.WAREHOUSE, 2, 8, OperatingStatus.ACTIVE, "India", "West"));
-        Node wChennai = nodeRepository.save(new Node(null, "Warehouse Chennai", NodeType.WAREHOUSE, 2, 6, OperatingStatus.ACTIVE, "India", "South"));
+        Node wDelhi = nodeRepository.save(
+                new Node(null, "Warehouse Delhi", NodeType.WAREHOUSE, 2, 7, OperatingStatus.ACTIVE, "India", "North"));
+        Node wMumbai = nodeRepository.save(
+                new Node(null, "Warehouse Mumbai", NodeType.WAREHOUSE, 2, 8, OperatingStatus.ACTIVE, "India", "West"));
+        Node wChennai = nodeRepository.save(new Node(null, "Warehouse Chennai", NodeType.WAREHOUSE, 2, 6,
+                OperatingStatus.ACTIVE, "India", "South"));
 
-        Node fA = nodeRepository.save(new Node(null, "Factory A", NodeType.FACTORY, 3, 4, OperatingStatus.ACTIVE, "India", "West"));
-        Node fB = nodeRepository.save(new Node(null, "Factory B", NodeType.FACTORY, 3, 5, OperatingStatus.ACTIVE, "India", "South"));
-        Node fC = nodeRepository.save(new Node(null, "Factory C (Backup)", NodeType.FACTORY, 3, 6, OperatingStatus.ACTIVE, "Vietnam", "APAC"));
+        Node fA = nodeRepository
+                .save(new Node(null, "Factory A", NodeType.FACTORY, 3, 4, OperatingStatus.ACTIVE, "India", "West"));
+        Node fB = nodeRepository
+                .save(new Node(null, "Factory B", NodeType.FACTORY, 3, 5, OperatingStatus.ACTIVE, "India", "South"));
+        Node fC = nodeRepository.save(new Node(null, "Factory C (Backup)", NodeType.FACTORY, 3, 6,
+                OperatingStatus.ACTIVE, "Vietnam", "APAC"));
 
-        Node sSteel = nodeRepository.save(new Node(null, "Supplier Steel", NodeType.SUPPLIER, 4, 6, OperatingStatus.ACTIVE, "China", "Asia"));
-        Node sPlastic = nodeRepository.save(new Node(null, "Supplier Plastic", NodeType.SUPPLIER, 4, 5, OperatingStatus.ACTIVE, "India", "West"));
-        Node sElectronics = nodeRepository.save(new Node(null, "Supplier Electronics", NodeType.SUPPLIER, 4, 5, OperatingStatus.ACTIVE, "Taiwan", "APAC"));
-        Node sPackaging = nodeRepository.save(new Node(null, "Supplier Packaging", NodeType.SUPPLIER, 4, 4, OperatingStatus.ACTIVE, "India", "North"));
+        Node sSteel = nodeRepository.save(
+                new Node(null, "Supplier Steel", NodeType.SUPPLIER, 4, 6, OperatingStatus.ACTIVE, "China", "Asia"));
+        Node sPlastic = nodeRepository.save(
+                new Node(null, "Supplier Plastic", NodeType.SUPPLIER, 4, 5, OperatingStatus.ACTIVE, "India", "West"));
+        Node sElectronics = nodeRepository.save(new Node(null, "Supplier Electronics", NodeType.SUPPLIER, 4, 5,
+                OperatingStatus.ACTIVE, "Taiwan", "APAC"));
+        Node sPackaging = nodeRepository.save(new Node(null, "Supplier Packaging", NodeType.SUPPLIER, 4, 4,
+                OperatingStatus.ACTIVE, "India", "North"));
 
-        Node ironOre = nodeRepository.save(new Node(null, "Iron Ore Mine", NodeType.SUB_SUPPLIER, 5, 10, OperatingStatus.ACTIVE, "Australia", "APAC"));
-        Node crudeOil = nodeRepository.save(new Node(null, "Crude Oil Plant", NodeType.SUB_SUPPLIER, 5, 9, OperatingStatus.ACTIVE, "UAE", "Middle East"));
-        Node silicon = nodeRepository.save(new Node(null, "Silicon Mine", NodeType.SUB_SUPPLIER, 5, 8, OperatingStatus.ACTIVE, "Chile", "LATAM"));
-        Node paperMill = nodeRepository.save(new Node(null, "Paper Mill", NodeType.SUB_SUPPLIER, 5, 7, OperatingStatus.ACTIVE, "Indonesia", "APAC"));
+        Node ironOre = nodeRepository.save(new Node(null, "Iron Ore Mine", NodeType.SUB_SUPPLIER, 5, 10,
+                OperatingStatus.ACTIVE, "Australia", "APAC"));
+        Node crudeOil = nodeRepository.save(new Node(null, "Crude Oil Plant", NodeType.SUB_SUPPLIER, 5, 9,
+                OperatingStatus.ACTIVE, "UAE", "Middle East"));
+        Node silicon = nodeRepository.save(
+                new Node(null, "Silicon Mine", NodeType.SUB_SUPPLIER, 5, 8, OperatingStatus.ACTIVE, "Chile", "LATAM"));
+        Node paperMill = nodeRepository.save(
+                new Node(null, "Paper Mill", NodeType.SUB_SUPPLIER, 5, 7, OperatingStatus.ACTIVE, "Indonesia", "APAC"));
 
         // ---------------- EDGES ----------------
 

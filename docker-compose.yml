@@ -31,6 +31,7 @@ services:
       DB_NAME: supply_chain
       DB_USER: postgres
       DB_PASSWORD: postgres
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     depends_on:
       db:
         condition: service_healthy   # wait until PostgreSQL is ready

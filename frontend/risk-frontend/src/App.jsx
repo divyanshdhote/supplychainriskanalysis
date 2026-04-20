@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { fetchGraph, fetchCriticalPath } from './services/api';
+import { useState, useEffect, useRef } from 'react'
+import { fetchGraph, fetchCriticalPath, explainWithAi } from './services/api';
 import GraphView from "./components/GraphView";
 import DisruptionSimulator from "./components/DisruptionSimulator";
 import './App.css'
@@ -36,28 +36,37 @@ function App() {
   const [disruptedNodes, setDisruptedNodes] = useState(new Set());
   const [disruptionTimeline, setDisruptionTimeline] = useState(null);
 
+  // ── AI Narrative state ────────────────────────────────────────────────────
+  const [aiNarrative, setAiNarrative]   = useState(null);
+  const [aiLoading, setAiLoading]       = useState(false);
+  const [aiError, setAiError]           = useState(null);
+  const [aiType, setAiType]             = useState(null); // "critical-path" | "simulation"
+  // Cache the last algorithm result so the Explain button can use it
+  const lastCriticalPathData = useRef(null);
+  const lastSimulationData   = useRef(null);
+
   const handleRiskPathAnalysis = () => {
     setPathLoading(true);
     setPathError(null);
     setCriticalPath([]);
     setCriticalEdges([]);
     setTotalPathWeight(null);
+    setAiNarrative(null);
+    setAiError(null);
     fetchCriticalPath()
       .then((data) => {
         console.log("Critical path response:", data);
         const edges = data.path || [];
-        // Store the raw edges for edge highlighting
         setCriticalEdges(edges);
 
-        // Extract ordered node IDs from the edge list
         if (edges.length > 0) {
           const nodeIds = [String(edges[0].fromNodeId)];
           edges.forEach((e) => nodeIds.push(String(e.toNodeId)));
           setCriticalPath(nodeIds);
-
-          // Use totalWeight from API directly
           setTotalPathWeight(data.totalWeight ?? edges.reduce((sum, e) => sum + (e.weight || 0), 0));
         }
+        // Cache for AI explain
+        lastCriticalPathData.current = data;
       })
       .catch((err) => {
         console.error(err);
@@ -66,15 +75,40 @@ function App() {
       .finally(() => setPathLoading(false));
   };
 
+  const handleExplainWithAi = (type) => {
+    const data = type === "critical-path"
+      ? lastCriticalPathData.current
+      : lastSimulationData.current;
+
+    if (!data) return;
+
+    setAiLoading(true);
+    setAiError(null);
+    setAiNarrative(null);
+    setAiType(type);
+
+    explainWithAi(type, data)
+      .then((narrative) => setAiNarrative(narrative))
+      .catch((err) => { console.error(err); setAiError(err.message); })
+      .finally(() => setAiLoading(false));
+  };
+
   const handleSimulationResult = ({ timeline }) => {
     const nodeIds = new Set(timeline.map((t) => String(t.nodeId)));
     setDisruptedNodes(nodeIds);
     setDisruptionTimeline(timeline);
+    // Cache for AI explain
+    lastSimulationData.current = { timeline };
+    setAiNarrative(null);
+    setAiError(null);
   };
 
   const handleClearSimulation = () => {
     setDisruptedNodes(new Set());
     setDisruptionTimeline(null);
+    lastSimulationData.current = null;
+    setAiNarrative(null);
+    setAiError(null);
   };
 
   useEffect(() => {
@@ -212,7 +246,138 @@ function App() {
           criticalEdges={criticalEdges}
           disruptedNodes={disruptedNodes}
         />
-        
+
+        {/* ── AI Explain Buttons ──────────────────────────────────────── */}
+        <div style={{
+          display: "flex", gap: 10, padding: "10px 20px 0",
+          flexWrap: "wrap",
+        }}>
+          {lastCriticalPathData.current && (
+            <button
+              id="ai-explain-critical-path-btn"
+              onClick={() => handleExplainWithAi("critical-path")}
+              disabled={aiLoading}
+              style={{
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
+                fontWeight: 700, letterSpacing: "0.08em",
+                background: aiLoading && aiType === "critical-path"
+                  ? "#1a2235"
+                  : "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                border: "1px solid #6366f1",
+                color: aiLoading && aiType === "critical-path" ? "#64748b" : "#fff",
+                borderRadius: 6, padding: "7px 16px",
+                cursor: aiLoading ? "not-allowed" : "pointer",
+                boxShadow: aiLoading ? "none" : "0 0 14px rgba(99,102,241,0.35)",
+                transition: "all 0.2s ease",
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              ✨ {aiLoading && aiType === "critical-path" ? "GEMINI THINKING..." : "EXPLAIN PATH WITH AI"}
+            </button>
+          )}
+          {lastSimulationData.current && (
+            <button
+              id="ai-explain-simulation-btn"
+              onClick={() => handleExplainWithAi("simulation")}
+              disabled={aiLoading}
+              style={{
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
+                fontWeight: 700, letterSpacing: "0.08em",
+                background: aiLoading && aiType === "simulation"
+                  ? "#1a2235"
+                  : "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                border: "1px solid #8b5cf6",
+                color: aiLoading && aiType === "simulation" ? "#64748b" : "#fff",
+                borderRadius: 6, padding: "7px 16px",
+                cursor: aiLoading ? "not-allowed" : "pointer",
+                boxShadow: aiLoading ? "none" : "0 0 14px rgba(139,92,246,0.35)",
+                transition: "all 0.2s ease",
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              ✨ {aiLoading && aiType === "simulation" ? "GEMINI THINKING..." : "EXPLAIN SIMULATION WITH AI"}
+            </button>
+          )}
+        </div>
+
+        {/* ── AI Narrative Panel ──────────────────────────────────────── */}
+        {(aiLoading || aiNarrative || aiError) && (
+          <div
+            id="ai-narrative-panel"
+            style={{
+              margin: "12px 20px 0",
+              background: "rgba(99, 102, 241, 0.06)",
+              border: "1px solid rgba(99, 102, 241, 0.3)",
+              borderRadius: 10,
+              padding: "18px 22px",
+              backdropFilter: "blur(12px)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Glowing top border accent */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 2,
+              background: "linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1)",
+              borderRadius: "10px 10px 0 0",
+            }} />
+
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 12,
+            }}>
+              <span style={{ fontSize: 16 }}>✨</span>
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 11, fontWeight: 700,
+                color: "#a5b4fc", letterSpacing: "0.12em",
+              }}>
+                GEMINI AI • {aiType === "critical-path" ? "CRITICAL PATH ANALYSIS" : "DISRUPTION SIMULATION"}
+              </span>
+              <button
+                id="ai-dismiss-btn"
+                onClick={() => { setAiNarrative(null); setAiError(null); }}
+                style={{
+                  marginLeft: "auto", background: "transparent",
+                  border: "none", color: "#475569", cursor: "pointer",
+                  fontSize: 16, lineHeight: 1, padding: 0,
+                }}
+                title="Dismiss"
+              >✕</button>
+            </div>
+
+            {aiLoading && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                color: "#a5b4fc", fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 12,
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" style={{ animation: "spin 1s linear infinite" }}>
+                  <circle cx="12" cy="12" r="10" stroke="#6366f1" strokeWidth="3" fill="none" strokeDasharray="60" strokeDashoffset="20" />
+                </svg>
+                Analysing with Gemini...
+              </div>
+            )}
+            {aiError && (
+              <p style={{
+                color: "#f87171", fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 12, margin: 0,
+              }}>
+                ⚠ {aiError}
+              </p>
+            )}
+            {aiNarrative && (
+              <p style={{
+                color: "#cbd5e1", fontFamily: "'Inter', 'IBM Plex Mono', monospace",
+                fontSize: 13.5, lineHeight: 1.75, margin: 0,
+                whiteSpace: "pre-wrap",
+              }}>
+                {aiNarrative}
+              </p>
+            )}
+          </div>
+        )}
+
         <DisruptionSimulator
           nodes={graph.nodes}
           onSimulationResult={handleSimulationResult}
